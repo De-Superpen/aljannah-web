@@ -26,26 +26,42 @@ export const useLiteraryWorks = () => {
   const fetchWorks = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      console.log('Fetching literary works...');
+      console.log('Current user:', user?.id);
+      
       const { data, error } = await supabase
         .from('literary_works')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching works:', error);
+        throw error;
+      }
+      
+      console.log('Fetched works:', data);
       setWorks((data || []) as LiteraryWork[]);
     } catch (err: any) {
+      console.error('Error in fetchWorks:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   const createWork = async (workData: Partial<LiteraryWork>) => {
-    if (!user) throw new Error('User not authenticated');
+    if (!user) {
+      console.error('User not authenticated');
+      throw new Error('User not authenticated');
+    }
 
-    const { data, error } = await supabase
-      .from('literary_works')
-      .insert({
+    try {
+      console.log('Creating work with data:', workData);
+      console.log('User ID:', user.id);
+      
+      const insertData = {
         title: workData.title || '',
         type: workData.type || 'article',
         author_id: user.id,
@@ -53,43 +69,101 @@ export const useLiteraryWorks = () => {
         content: workData.content,
         cover_image: workData.cover_image,
         status: workData.status || 'draft',
-        tags: workData.tags,
-        published_at: workData.published_at,
-      })
-      .select()
-      .single();
+        tags: workData.tags || [],
+        published_at: workData.status === 'published' ? (workData.published_at || new Date().toISOString()) : null
+      };
+      
+      console.log('Insert data:', insertData);
 
-    if (error) throw error;
-    await fetchWorks();
-    return data;
+      const { data, error } = await supabase
+        .from('literary_works')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating work:', error);
+        throw error;
+      }
+      
+      console.log('Created work:', data);
+      
+      // Add the new work to the current list instead of refetching
+      setWorks(currentWorks => [data as LiteraryWork, ...currentWorks]);
+      
+      return data;
+    } catch (error) {
+      console.error('Error in createWork:', error);
+      throw error;
+    }
   };
 
   const updateWork = async (id: string, workData: Partial<LiteraryWork>) => {
-    const { data, error } = await supabase
-      .from('literary_works')
-      .update(workData)
-      .eq('id', id)
-      .select()
-      .single();
+    try {
+      console.log('Updating work:', id, workData);
+      
+      const updateData = {
+        ...workData,
+        published_at: workData.status === 'published' ? (workData.published_at || new Date().toISOString()) : workData.published_at
+      };
+      
+      const { data, error } = await supabase
+        .from('literary_works')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
 
-    if (error) throw error;
-    await fetchWorks();
-    return data;
+      if (error) {
+        console.error('Error updating work:', error);
+        throw error;
+      }
+      
+      console.log('Updated work:', data);
+      
+      // Update the work in the current list
+      setWorks(currentWorks => 
+        currentWorks.map(work => 
+          work.id === id ? { ...work, ...data } as LiteraryWork : work
+        )
+      );
+      
+      return data;
+    } catch (error) {
+      console.error('Error in updateWork:', error);
+      throw error;
+    }
   };
 
   const deleteWork = async (id: string) => {
-    const { error } = await supabase
-      .from('literary_works')
-      .delete()
-      .eq('id', id);
+    try {
+      console.log('Deleting work:', id);
+      
+      const { error } = await supabase
+        .from('literary_works')
+        .delete()
+        .eq('id', id);
 
-    if (error) throw error;
-    await fetchWorks();
+      if (error) {
+        console.error('Error deleting work:', error);
+        throw error;
+      }
+      
+      console.log('Deleted work:', id);
+      
+      // Remove the work from the current list
+      setWorks(currentWorks => currentWorks.filter(work => work.id !== id));
+    } catch (error) {
+      console.error('Error in deleteWork:', error);
+      throw error;
+    }
   };
 
   useEffect(() => {
-    fetchWorks();
-  }, []);
+    if (user) {
+      fetchWorks();
+    }
+  }, [user, fetchWorks]);
 
   return {
     works,
@@ -110,15 +184,25 @@ export const usePublishedWorks = () => {
   const fetchPublishedWorks = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
+      
+      console.log('Fetching published works...');
+      
       const { data, error } = await supabase
         .from('literary_works')
         .select('*')
         .eq('status', 'published')
         .order('published_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching published works:', error);
+        throw error;
+      }
+      
+      console.log('Fetched published works:', data);
       setWorks((data || []) as LiteraryWork[]);
     } catch (err: any) {
+      console.error('Error in fetchPublishedWorks:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -127,7 +211,7 @@ export const usePublishedWorks = () => {
 
   useEffect(() => {
     fetchPublishedWorks();
-  }, []);
+  }, [fetchPublishedWorks]);
 
   return { works, loading, error, refetch: fetchPublishedWorks };
 };
