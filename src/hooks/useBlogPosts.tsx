@@ -53,15 +53,22 @@ export const useBlogPosts = () => {
   }, [user?.id]);
 
   const createPost = async (postData: Partial<BlogPost>) => {
+    console.log('=== CREATE POST START ===');
+    console.log('User object:', user);
+    console.log('User ID:', user?.id);
+    console.log('Post data received:', postData);
+    
     if (!user) {
-      console.error('User not authenticated');
+      console.error('User not authenticated - user object is null/undefined');
       throw new Error('User not authenticated');
     }
 
+    if (!user.id) {
+      console.error('User ID is missing from user object:', user);
+      throw new Error('User ID is missing');
+    }
+
     try {
-      console.log('Creating post with data:', postData);
-      console.log('User ID:', user.id);
-      
       const slug = generateSlug(postData.title || '');
       const insertData = {
         title: postData.title || '',
@@ -75,7 +82,8 @@ export const useBlogPosts = () => {
         published_at: postData.status === 'published' ? (postData.published_at || new Date().toISOString()) : null
       };
       
-      console.log('Insert data:', insertData);
+      console.log('Final insert data:', insertData);
+      console.log('About to call supabase.from("blog_posts").insert()');
       
       const { data, error } = await supabase
         .from('blog_posts')
@@ -83,19 +91,38 @@ export const useBlogPosts = () => {
         .select()
         .single();
 
+      console.log('Supabase response - data:', data);
+      console.log('Supabase response - error:', error);
+
       if (error) {
-        console.error('Error creating post:', error);
+        console.error('Supabase insert error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
       
-      console.log('Created post:', data);
+      if (!data) {
+        console.error('No data returned from insert operation');
+        throw new Error('No data returned from insert operation');
+      }
       
-      // Add the new post to the current list instead of refetching
-      setPosts(currentPosts => [data as BlogPost, ...currentPosts]);
+      console.log('Successfully created post:', data);
       
+      // Add the new post to the current list
+      setPosts(currentPosts => {
+        const newPosts = [data as BlogPost, ...currentPosts];
+        console.log('Updated posts list:', newPosts);
+        return newPosts;
+      });
+      
+      console.log('=== CREATE POST SUCCESS ===');
       return data;
     } catch (error) {
-      console.error('Error in createPost:', error);
+      console.error('=== CREATE POST ERROR ===');
+      console.error('Error details:', error);
       throw error;
     }
   };

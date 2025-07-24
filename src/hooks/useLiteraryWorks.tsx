@@ -52,15 +52,22 @@ export const useLiteraryWorks = () => {
   }, [user?.id]);
 
   const createWork = async (workData: Partial<LiteraryWork>) => {
+    console.log('=== CREATE WORK START ===');
+    console.log('User object:', user);
+    console.log('User ID:', user?.id);
+    console.log('Work data received:', workData);
+    
     if (!user) {
-      console.error('User not authenticated');
+      console.error('User not authenticated - user object is null/undefined');
       throw new Error('User not authenticated');
     }
 
+    if (!user.id) {
+      console.error('User ID is missing from user object:', user);
+      throw new Error('User ID is missing');
+    }
+
     try {
-      console.log('Creating work with data:', workData);
-      console.log('User ID:', user.id);
-      
       const insertData = {
         title: workData.title || '',
         type: workData.type || 'article',
@@ -73,7 +80,8 @@ export const useLiteraryWorks = () => {
         published_at: workData.status === 'published' ? (workData.published_at || new Date().toISOString()) : null
       };
       
-      console.log('Insert data:', insertData);
+      console.log('Final insert data:', insertData);
+      console.log('About to call supabase.from("literary_works").insert()');
 
       const { data, error } = await supabase
         .from('literary_works')
@@ -81,19 +89,38 @@ export const useLiteraryWorks = () => {
         .select()
         .single();
 
+      console.log('Supabase response - data:', data);
+      console.log('Supabase response - error:', error);
+
       if (error) {
-        console.error('Error creating work:', error);
+        console.error('Supabase insert error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         throw error;
       }
       
-      console.log('Created work:', data);
+      if (!data) {
+        console.error('No data returned from insert operation');
+        throw new Error('No data returned from insert operation');
+      }
       
-      // Add the new work to the current list instead of refetching
-      setWorks(currentWorks => [data as LiteraryWork, ...currentWorks]);
+      console.log('Successfully created work:', data);
       
+      // Add the new work to the current list
+      setWorks(currentWorks => {
+        const newWorks = [data as LiteraryWork, ...currentWorks];
+        console.log('Updated works list:', newWorks);
+        return newWorks;
+      });
+      
+      console.log('=== CREATE WORK SUCCESS ===');
       return data;
     } catch (error) {
-      console.error('Error in createWork:', error);
+      console.error('=== CREATE WORK ERROR ===');
+      console.error('Error details:', error);
       throw error;
     }
   };
