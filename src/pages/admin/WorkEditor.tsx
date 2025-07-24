@@ -62,6 +62,11 @@ const WorkEditor = () => {
   };
 
   const handleSave = async (status: string = formData.status) => {
+    console.log('=== WORK EDITOR SAVE START ===');
+    console.log('Form data:', formData);
+    console.log('Status:', status);
+    console.log('Is new:', isNew);
+    
     if (!formData.title.trim()) {
       toast({
         title: "Error",
@@ -75,37 +80,52 @@ const WorkEditor = () => {
     
     try {
       const workData = {
-        title: formData.title,
+        title: formData.title.trim(),
         type: formData.type,
-        description: formData.description,
-        content: formData.content,
-        cover_image: formData.cover_image,
+        description: formData.description || null,
+        content: formData.content || null,
+        cover_image: formData.cover_image || null,
         status: status as "draft" | "published" | "archived",
-        tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-        published_at: status === "published" ? (formData.published_at ? new Date(formData.published_at).toISOString() : new Date().toISOString()) : null
+        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [],
+        published_at: status === "published" ? 
+          (formData.published_at ? new Date(formData.published_at).toISOString() : new Date().toISOString()) : 
+          null
       };
       
+      console.log('Work data to save:', workData);
+      
+      let result;
       if (isNew) {
-        await createWork(workData);
+        console.log('Creating new work...');
+        result = await createWork(workData);
+        console.log('Create work result:', result);
         toast({
           title: "Success",
-          description: "Work created successfully"
+          description: "Work created successfully!"
         });
       } else if (id) {
-        await updateWork(id, workData);
+        console.log('Updating existing work...');
+        result = await updateWork(id, workData);
+        console.log('Update work result:', result);
         toast({
           title: "Success", 
-          description: "Work updated successfully"
+          description: "Work updated successfully!"
         });
       }
-      navigate("/admin/works");
+      
+      // Small delay to ensure the toast is visible before navigation
+      setTimeout(() => {
+        navigate("/admin/works");
+      }, 1000);
+      
     } catch (error: any) {
+      console.error('=== WORK EDITOR SAVE ERROR ===');
+      console.error('Error details:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to save work. Please try again.",
         variant: "destructive"
       });
-      console.error("Error saving work:", error);
     } finally {
       setSaving(false);
     }

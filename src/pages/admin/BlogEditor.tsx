@@ -138,6 +138,9 @@ const BlogEditor = () => {
   const handlePreview = () => {
     if (formData.slug) {
       window.open(`/blog/${formData.slug}`, '_blank');
+    } else if (formData.title) {
+      const slug = formData.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
+      window.open(`/blog/${slug}`, '_blank');
     } else {
       toast({
         title: "Cannot Preview",
